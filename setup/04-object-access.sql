@@ -1,0 +1,120 @@
+-- 05: grants over the objects created by 02-04. Run as ACCOUNTADMIN.
+-- The app queries with the caller's identity where it can, so the publisher
+-- role needs both its own privileges and the CALLER variants.
+USE ROLE ACCOUNTADMIN;
+
+GRANT SELECT ON ALL TABLES IN SCHEMA __DB__.__SCHEMA__ TO ROLE __REVIEWER_ROLE__;
+GRANT SELECT ON ALL VIEWS IN SCHEMA __DB__.__SCHEMA__ TO ROLE __REVIEWER_ROLE__;
+GRANT USAGE ON ALL FUNCTIONS IN SCHEMA __DB__.__SCHEMA__ TO ROLE __REVIEWER_ROLE__;
+GRANT USAGE ON ALL PROCEDURES IN SCHEMA __DB__.__SCHEMA__ TO ROLE __REVIEWER_ROLE__;
+GRANT INHERITED CALLER SELECT ON ALL TABLES IN SCHEMA __DB__.__SCHEMA__ TO ROLE __PUBLISHER_ROLE__;
+GRANT INHERITED CALLER SELECT ON ALL VIEWS IN SCHEMA __DB__.__SCHEMA__ TO ROLE __PUBLISHER_ROLE__;
+GRANT INHERITED CALLER USAGE ON ALL FUNCTIONS IN SCHEMA __DB__.__SCHEMA__ TO ROLE __PUBLISHER_ROLE__;
+GRANT INHERITED CALLER USAGE ON ALL PROCEDURES IN SCHEMA __DB__.__SCHEMA__ TO ROLE __PUBLISHER_ROLE__;
+
+-- Writes are narrow on purpose: a reviewer may record decisions and exports,
+-- and register uploaded documents, nothing else.
+GRANT UPDATE ON TABLE __DB__.__SCHEMA__.MASTER_DECISION TO ROLE __REVIEWER_ROLE__;
+GRANT UPDATE ON TABLE __DB__.__SCHEMA__.FORM_DECISION TO ROLE __REVIEWER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.DECISION_HISTORY TO ROLE __REVIEWER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.EXPORT_HISTORY TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER UPDATE ON TABLE __DB__.__SCHEMA__.MASTER_DECISION TO ROLE __PUBLISHER_ROLE__;
+GRANT CALLER UPDATE ON TABLE __DB__.__SCHEMA__.FORM_DECISION TO ROLE __PUBLISHER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.DECISION_HISTORY TO ROLE __PUBLISHER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.EXPORT_HISTORY TO ROLE __PUBLISHER_ROLE__;
+-- A submission record is stamped with the hash of the bytes it produced, so this
+-- table needs UPDATE too. The procedure only moves one row of the caller's own
+-- from 'prepared' to 'rendered' or 'failed'.
+GRANT UPDATE ON TABLE __DB__.__SCHEMA__.EXPORT_HISTORY TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER UPDATE ON TABLE __DB__.__SCHEMA__.EXPORT_HISTORY TO ROLE __PUBLISHER_ROLE__;
+-- The layout grants. These are the ones this file forgot when ADOPT_LAYOUT and
+-- REVIEW_LAYOUT were added, and the omission is invisible until a reviewer presses
+-- the button: the broad GRANT SELECT ON ALL TABLES above covers every read, so the
+-- app looks healthy right up to the write, which fails with "the owner role
+-- SFS_PUBLISHER must have CALLER INSERT granted". Confirming as
+-- ACCOUNTADMIN proves nothing here, because ACCOUNTADMIN has the privilege anyway.
+-- scripts/generate-grants.mjs is the other copy of this list; a write grant added
+-- there has to be added here too.
+--
+-- The visual check moves one FORM_LAYOUT version from 'pending' to
+-- 'reviewed_draft', which unlocks draft and test output only — every page still
+-- carries 正式提出不可. Adoption is the separate, heavier claim that lets a
+-- submission print without that marking; it is recorded from the app through
+-- ADOPT_LAYOUT, and the guards live in the procedure rather than in the grant: the
+-- version must already be reviewed_draft, the definition hash must match, and the
+-- adopting user is written into the row.
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.FORM_LAYOUT_REVIEW TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.FORM_LAYOUT_REVIEW TO ROLE __PUBLISHER_ROLE__;
+GRANT UPDATE ON TABLE __DB__.__SCHEMA__.FORM_LAYOUT TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER UPDATE ON TABLE __DB__.__SCHEMA__.FORM_LAYOUT TO ROLE __PUBLISHER_ROLE__;
+GRANT SELECT ON TABLE __DB__.__SCHEMA__.FORM_LAYOUT_APPROVAL TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER SELECT ON TABLE __DB__.__SCHEMA__.FORM_LAYOUT_APPROVAL TO ROLE __PUBLISHER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.FORM_LAYOUT_APPROVAL TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.FORM_LAYOUT_APPROVAL TO ROLE __PUBLISHER_ROLE__;
+-- Field rules are read by the app and written by an administrator, and
+-- FORM_SOURCE_FILE is a catalogue the app only reads.
+GRANT SELECT ON TABLE __DB__.__SCHEMA__.FORM_FIELD_RULE TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER SELECT ON TABLE __DB__.__SCHEMA__.FORM_FIELD_RULE TO ROLE __PUBLISHER_ROLE__;
+GRANT SELECT ON TABLE __DB__.__SCHEMA__.FORM_SOURCE_FILE TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER SELECT ON TABLE __DB__.__SCHEMA__.FORM_SOURCE_FILE TO ROLE __PUBLISHER_ROLE__;
+
+-- Registering an uploaded document writes across the document tables, and a
+-- document for a product the app has not seen also creates the product and its
+-- decision rows. The CALLER grants are what the procedures actually run under.
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.DOC_REGISTRY TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.DOC_REGISTRY TO ROLE __PUBLISHER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.DOC_VERSION TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.DOC_VERSION TO ROLE __PUBLISHER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.DOC_CLASSIFIED TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.DOC_CLASSIFIED TO ROLE __PUBLISHER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.DOC_EXTRACT TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.DOC_EXTRACT TO ROLE __PUBLISHER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.DOC_EXTRACT_GAP TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.DOC_EXTRACT_GAP TO ROLE __PUBLISHER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.DOC_RENDITION TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.DOC_RENDITION TO ROLE __PUBLISHER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.DOC_PARSE TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.DOC_PARSE TO ROLE __PUBLISHER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.PRODUCT TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.PRODUCT TO ROLE __PUBLISHER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.PRODUCT_SUPPLY TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.PRODUCT_SUPPLY TO ROLE __PUBLISHER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.MASTER_DECISION TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.MASTER_DECISION TO ROLE __PUBLISHER_ROLE__;
+GRANT INSERT ON TABLE __DB__.__SCHEMA__.FORM_DECISION TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER INSERT ON TABLE __DB__.__SCHEMA__.FORM_DECISION TO ROLE __PUBLISHER_ROLE__;
+
+-- Re-structuring one document discards its previous extraction, so DELETE is
+-- granted on the three extraction tables and nowhere else. Every delete in
+-- RESTRUCTURE_UPLOAD is scoped to a single stage path.
+GRANT DELETE ON TABLE __DB__.__SCHEMA__.DOC_CLASSIFIED TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER DELETE ON TABLE __DB__.__SCHEMA__.DOC_CLASSIFIED TO ROLE __PUBLISHER_ROLE__;
+GRANT DELETE ON TABLE __DB__.__SCHEMA__.DOC_EXTRACT TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER DELETE ON TABLE __DB__.__SCHEMA__.DOC_EXTRACT TO ROLE __PUBLISHER_ROLE__;
+GRANT DELETE ON TABLE __DB__.__SCHEMA__.DOC_EXTRACT_GAP TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER DELETE ON TABLE __DB__.__SCHEMA__.DOC_EXTRACT_GAP TO ROLE __PUBLISHER_ROLE__;
+
+-- Uploads land in this stage; both roles read it, the app writes to it.
+GRANT READ, WRITE ON STAGE __DB__.__SCHEMA__.UPLOADS TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER READ, WRITE ON STAGE __DB__.__SCHEMA__.UPLOADS TO ROLE __PUBLISHER_ROLE__;
+GRANT READ ON STAGE __DB__.__SCHEMA__.RAW TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER READ ON STAGE __DB__.__SCHEMA__.RAW TO ROLE __PUBLISHER_ROLE__;
+
+GRANT CALLER USAGE ON DATABASE __DB__ TO ROLE __PUBLISHER_ROLE__;
+GRANT CALLER USAGE ON SCHEMA __DB__.__SCHEMA__ TO ROLE __PUBLISHER_ROLE__;
+GRANT CALLER USAGE ON WAREHOUSE __WAREHOUSE__ TO ROLE __PUBLISHER_ROLE__;
+
+-- Resolving a built-in function name under restricted caller's rights walks the
+-- search path, which includes the database's PUBLIC schema and the SNOWFLAKE
+-- database. Without a CALLER privilege on both, AI_PARSE_DOCUMENT and AI_EXTRACT
+-- fail as "Unknown function" even though the account has them.
+GRANT USAGE ON SCHEMA __DB__.PUBLIC TO ROLE __REVIEWER_ROLE__;
+GRANT CALLER USAGE ON SCHEMA __DB__.PUBLIC TO ROLE __PUBLISHER_ROLE__;
+GRANT CALLER USAGE ON DATABASE SNOWFLAKE TO ROLE __PUBLISHER_ROLE__;
+
+-- AI_EXTRACT documents SNOWFLAKE.CORTEX_USER as its access requirement, and the
+-- app's owner role needs it as well as the caller. There is no CALLER form for a
+-- database role. Missing it surfaces as "Unknown function AI_EXTRACT" with no
+-- permission hint, so it reads like a search-path problem rather than a grant.
+GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE __PUBLISHER_ROLE__;
+GRANT DATABASE ROLE SNOWFLAKE.CORTEX_USER TO ROLE __REVIEWER_ROLE__;

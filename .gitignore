@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+output/
+*.tsbuildinfo
+.env*
+*.log
+.DS_Store
+test-results/
+playwright-report/
+__pycache__/
+
+# Written by scripts/setup.sh for the target account
+app.yml
