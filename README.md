@@ -3,8 +3,9 @@
 原料の規格書・SDS などの原本から、取引先ごとの調査票（様式）を作るまでを
 人の確認つきで進めるための Snowflake アプリです。Next.js で書かれ、
 [Snowflake App Runtime](https://docs.snowflake.com/) の Application Service として
-Snowflake アカウントの中で動きます。データはすべて同じアカウントのテーブルと
-ステージに置かれ、操作は利用者自身のロールの権限（caller's rights）で実行されます。
+Snowflake アカウントの中で動きます。原本・抽出結果・確認履歴は同じアカウントのテーブルと
+ステージに置きます。通常の DB 操作は利用者の権限（caller's rights）で行い、
+AI 処理の一部は所有者権限のプロシージャで実行します。生成した帳票はブラウザへ返します。
 
 ## できること
 
@@ -16,6 +17,27 @@ Snowflake アカウントの中で動きます。データはすべて同じア�
 | 原本の追加 | 打ち合わせで受け取った PDF をその場でアップロードし、`AI_PARSE_DOCUMENT` / `AI_EXTRACT` で構造化して候補に加える |
 
 確定していない値は提出用の出力に入りません。押印・署名欄は自動入力しません。
+
+## アーキテクチャの全体像
+
+**AI が候補を作り、人が確認し、アプリが帳票を生成する**構成です。
+以下はデータの流れの要約です。各処理は画面操作で開始し、自動的に確定・提出されるわけではありません。
+
+```mermaid
+flowchart TB
+    source["原本 PDF / Excel"] --> ingest["取り込み・登録<br/>Snowflake ステージ"]
+    ingest --> extract["Cortex AI による属性抽出<br/>候補値と根拠を保存"]
+    extract --> master["人が原本と照合<br/>マスター値を確定"]
+    master --> form["人が取引先様式の欄を確認"]
+    layout["座標付き様式 JSON<br/>人が空様式を照合・提出用に採用"] --> snapshot["Snowflake で出力条件を検証<br/>値・レイアウトをスナップショット保存"]
+    form --> snapshot
+    snapshot --> render["Next.js サーバーで生成<br/>PDF: pdf-lib / Word: OOXML"]
+    render --> download["PDF / Word をダウンロード<br/>人が最終確認して提出"]
+```
+
+詳細は [ARCHITECTURE.md](ARCHITECTURE.md) を参照してください。
+アプリとデータ層の配置、PDF/Excel の取り込み、文字起こしと属性抽出の分岐、
+人による確認、帳票出力、実行権限の境界を図で説明しています。
 
 ## 構成
 
@@ -74,6 +96,7 @@ npm run dev -- --hostname 127.0.0.1 --port 3100
 
 ## 接続先と帳票生成の技術詳細
 
+- [アーキテクチャ](ARCHITECTURE.md): 原本の取り込みから AI 抽出、人による確認、アプリの帳票生成まで
 - [接続先の設定方法](DEPLOY.md#接続先はどこで設定するか): ローカル接続、デプロイ先、実行時の認証、設定の優先順位
 - [PDF・Word 出力の技術詳細](EXPORT.md): API、Snowflake の検証とスナップショット、座標描画、OOXML、出力履歴、制限事項
 

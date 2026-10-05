@@ -1,5 +1,8 @@
 # PDF・Word 出力の技術詳細
 
+取り込み・AI 抽出・レビューを含む全体の流れは [アーキテクチャ](ARCHITECTURE.md) を参照してください。
+この文書は、そこで作られた確認済みの値とレイアウトから帳票を生成する処理を詳しく説明します。
+
 ## 1. 設計の要点
 
 PDF と Word は、Snowflake の `FORM_LAYOUT.definition` に保存した共通の座標付き JSON と、
